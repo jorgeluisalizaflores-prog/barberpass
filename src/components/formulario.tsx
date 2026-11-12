@@ -13,7 +13,7 @@ type Accion = (previo: EstadoForm, formData: FormData) => Promise<EstadoForm>;
 const Pendiente = createContext(false);
 
 export function Formulario({
-  accion, children, className, reiniciarAlExito = false, ...props
+  accion, children, className, reiniciarAlExito = false, onSubmit, ...props
 }: Omit<ComponentProps<"form">, "action"> & { accion: Accion; children: ReactNode; reiniciarAlExito?: boolean }) {
   const [estado, enviar, pendiente] = useActionState(accion, {});
   const ref = useRef<HTMLFormElement>(null);
@@ -28,6 +28,8 @@ export function Formulario({
       ref={ref}
       action={enviar}
       onSubmit={(e) => {
+        // Validación previa del propio formulario (si cancela, no se envía).
+        onSubmit?.(e);
         if (e.defaultPrevented) return;
         e.preventDefault();
         const fd = new FormData(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter);

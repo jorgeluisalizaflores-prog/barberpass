@@ -11,7 +11,8 @@ export function colorSobre(hex: string): string {
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
   const l = 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
-  return l > 0.45 ? "#111827" : "#ffffff";
+  // 0.179 es el punto donde negro y blanco dan el mismo contraste (WCAG).
+  return l > 0.179 ? "#111827" : "#ffffff";
 }
 
 /** Variables CSS con la marca de la barbería, para poner en un contenedor. */
