@@ -37,6 +37,9 @@ export async function crearSesion(datos: NuevaSesion): Promise<void> {
 
   await infraestructura.session.create({ data: { ...datos, tokenHash: sha256(token), expiresAt } });
 
+  // Limpieza oportunista de sesiones vencidas.
+  if (Math.random() < 0.05) await infraestructura.session.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+
   const jar = await cookies();
   jar.set(COOKIES[datos.role], token, {
     httpOnly: true,

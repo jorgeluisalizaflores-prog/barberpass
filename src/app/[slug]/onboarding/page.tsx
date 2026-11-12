@@ -32,7 +32,7 @@ export default async function PaginaOnboarding({ params, searchParams }: { param
   const hayCupo = b.plan.maxBarbers == null || barberos.length < b.plan.maxBarbers;
   const urlRegistro = `${await urlBasePublica()}/${slug}/registro`;
 
-  const Atras = () => (paso > 1 ? <EnlaceBoton href={`${base}?paso=${paso - 1}`} variante="fantasma">← Atrás</EnlaceBoton> : <span />);
+  const atras = paso > 1 ? <EnlaceBoton href={`${base}?paso=${paso - 1}`} variante="fantasma">← Atrás</EnlaceBoton> : <span />;
 
   return (
     <div className="flex flex-1 flex-col bg-slate-100">
@@ -61,7 +61,7 @@ export default async function PaginaOnboarding({ params, searchParams }: { param
             <p className="mb-4 mt-1 text-sm text-slate-600">Estos datos aparecen en la tarjeta de tus clientes.</p>
             <Formulario accion={pasoDatosAccion.bind(null, slug)}>
               <CamposDatos b={b} />
-              <div className="flex justify-between pt-2"><Atras /><BotonEnviar tamano="lg" textoEnviando="Guardando…">Continuar</BotonEnviar></div>
+              <div className="flex justify-between pt-2">{atras}<BotonEnviar tamano="lg" textoEnviando="Guardando…">Continuar</BotonEnviar></div>
             </Formulario>
           </Tarjeta>
         )}
@@ -73,7 +73,7 @@ export default async function PaginaOnboarding({ params, searchParams }: { param
             <div className="mb-5"><SubirLogo urlActual={urlLogo(b)} accion={logoAccion.bind(null, slug)} /></div>
             <Formulario accion={pasoColoresAccion.bind(null, slug)}>
               <CamposColores b={b} />
-              <div className="flex justify-between pt-2"><Atras /><BotonEnviar tamano="lg" textoEnviando="Guardando…">Continuar</BotonEnviar></div>
+              <div className="flex justify-between pt-2">{atras}<BotonEnviar tamano="lg" textoEnviando="Guardando…">Continuar</BotonEnviar></div>
             </Formulario>
           </Tarjeta>
         )}
@@ -84,7 +84,7 @@ export default async function PaginaOnboarding({ params, searchParams }: { param
             <p className="mb-4 mt-1 text-sm text-slate-600">Lo más común: 5 sellos y el siguiente corte es gratis.</p>
             <Formulario accion={pasoProgramaAccion.bind(null, slug)}>
               <CamposPrograma b={b} />
-              <div className="flex justify-between pt-2"><Atras /><BotonEnviar tamano="lg" textoEnviando="Guardando…">Continuar</BotonEnviar></div>
+              <div className="flex justify-between pt-2">{atras}<BotonEnviar tamano="lg" textoEnviando="Guardando…">Continuar</BotonEnviar></div>
             </Formulario>
           </Tarjeta>
         )}
@@ -125,7 +125,7 @@ export default async function PaginaOnboarding({ params, searchParams }: { param
               </Formulario>
             </Tarjeta>
             <div className="flex justify-between">
-              <Atras />
+              {atras}
               <EnlaceBoton href={`${base}?paso=5`} tamano="lg">{barberos.length ? "Continuar" : "Lo haré después"}</EnlaceBoton>
             </div>
           </div>
@@ -145,7 +145,7 @@ export default async function PaginaOnboarding({ params, searchParams }: { param
               urlRegistro={urlRegistro} qrDataUrl={await qrPngDataUrl(urlRegistro, 800)} logoUrl={urlLogo(b)} slug={slug}
             />
             <div className="no-imprimir flex justify-between">
-              <Atras />
+              {atras}
               <form action={finalizarOnboardingAccion.bind(null, slug)}><Boton type="submit" variante="acento" tamano="lg">Ir a mi panel</Boton></form>
             </div>
           </div>

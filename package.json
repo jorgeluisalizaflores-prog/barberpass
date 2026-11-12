@@ -15,7 +15,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "crear-superadmin": "tsx scripts/crear-superadmin.ts",
-    "crear-barberia": "tsx scripts/crear-barberia.ts"
+    "crear-barberia": "tsx scripts/crear-barberia.ts",
+    "demo": "tsx scripts/demo.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

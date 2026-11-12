@@ -12,6 +12,7 @@ import {
   restablecerPasswordDueno, suspenderBarberia,
 } from "@/lib/servicios/admin";
 import { crearBarberia } from "@/lib/servicios/barberias";
+import { reiniciarDemo } from "@/lib/servicios/demo";
 
 export async function crearBarberiaAccion(_p: EstadoForm, fd: FormData): Promise<EstadoForm> {
   const { actor } = await requerirSuperAdmin();
@@ -109,5 +110,15 @@ export async function guardarConfiguracionAccion(_p: EstadoForm, fd: FormData): 
     }, actor);
     revalidatePath("/", "layout");
     return { ok: "Configuración guardada." };
+  } catch (e) { return aEstado(e); }
+}
+
+/** Crea o regenera la barbería demo con datos ficticios. */
+export async function reiniciarDemoAccion(_p: EstadoForm, _fd: FormData): Promise<EstadoForm> {
+  const { actor } = await requerirSuperAdmin();
+  try {
+    const d = await reiniciarDemo(actor);
+    revalidatePath("/", "layout");
+    return { ok: `Demo lista en /${d.slug}. Dueño demo: ${d.email} / ${d.password}.` };
   } catch (e) { return aEstado(e); }
 }

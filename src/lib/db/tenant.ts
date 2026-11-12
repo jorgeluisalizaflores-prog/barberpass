@@ -124,11 +124,11 @@ export async function conBarberia<T>(barbershopId: string, fn: (db: Db) => Promi
  * Acceso global de plataforma. Úsalo solo en el panel del super administrador
  * y en infraestructura (login, resolver slug). Nunca en código de una barbería.
  */
-export async function conPlataforma<T>(fn: (db: Db) => Promise<T>): Promise<T> {
+export async function conPlataforma<T>(fn: (db: Db) => Promise<T>, opciones: { timeout?: number } = {}): Promise<T> {
   return prismaCrudo.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.plataforma', 'on', true)`;
     return fn(tx);
-  }, OPCIONES_TX);
+  }, { ...OPCIONES_TX, ...opciones });
 }
 
 /** Tablas globales sin datos de barberías (sesiones, intentos de login, enlaces de recuperación). */

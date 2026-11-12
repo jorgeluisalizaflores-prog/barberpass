@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { InsigniaEstado } from "@/components/insignia-estado";
-import { EnlaceBoton, Metrica, Tabla, Titulo, Vacio } from "@/components/ui";
+import { BotonConfirmar, Formulario } from "@/components/formulario";
+import { EnlaceBoton, Metrica, Tabla, Tarjeta, Titulo, Vacio } from "@/components/ui";
 import { requerirSuperAdmin } from "@/lib/auth/guardas";
 import { formatoFecha, formatoSoles } from "@/lib/fechas";
 import { metricasGlobales } from "@/lib/servicios/admin";
+import { DEMO, obtenerDemo } from "@/lib/servicios/demo";
+import { impersonarAccion, reiniciarDemoAccion } from "./acciones";
 
 export default async function PaginaAdmin() {
   await requerirSuperAdmin();
   const m = await metricasGlobales();
+  const demo = await obtenerDemo();
   return (
     <>
       <Titulo descripcion="Estado general de la plataforma (no incluye la barbería demo)." acciones={<EnlaceBoton href="/admin/barberias/nueva">Nueva barbería</EnlaceBoton>}>
@@ -42,6 +46,22 @@ export default async function PaginaAdmin() {
           </tbody>
         </Tabla>
       )}
+
+      <h2 className="mb-3 mt-8 text-lg font-bold">Barbería demo</h2>
+      <Tarjeta className="space-y-3">
+        <p className="text-sm text-slate-600">
+          «{DEMO.nombre}» tiene 60 clientes y 5 meses de cortes ficticios para mostrar la plataforma a posibles clientes. No vence ni cuenta en las métricas.
+          {demo ? <> Página pública: <Link href="/demo" className="font-semibold underline">/demo</Link> · barberos con PIN {DEMO.pinBarberos}.</> : " Aún no está creada."}
+        </p>
+        <div className="flex flex-wrap items-start gap-2">
+          {demo && <form action={impersonarAccion.bind(null, demo.id)}><button className="rounded-xl bg-acento px-4 py-2.5 text-sm font-semibold text-sobre-acento">Entrar al panel de la demo</button></form>}
+          <Formulario accion={reiniciarDemoAccion} className="space-y-2">
+            <BotonConfirmar variante="secundario" mensaje={demo ? "Se borrarán los datos actuales de la demo y se generarán de nuevo. ¿Continuar?" : "¿Crear la barbería demo?"}>
+              {demo ? "Regenerar datos de la demo" : "Crear barbería demo"}
+            </BotonConfirmar>
+          </Formulario>
+        </div>
+      </Tarjeta>
     </>
   );
 }
