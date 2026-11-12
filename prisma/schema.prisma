@@ -118,6 +118,18 @@ model LoginAttempt {
   @@index([key, createdAt])
 }
 
+// Enlaces de un solo uso para restablecer la contraseña del dueño (por correo).
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  ownerUserId String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([ownerUserId])
+}
+
 // ─────────────────────── Modelos por barbería (RLS) ───────────────────────
 
 model Barbershop {

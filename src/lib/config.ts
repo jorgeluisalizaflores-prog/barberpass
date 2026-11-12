@@ -29,7 +29,7 @@ export const LIMITE_INTENTOS = {
 export const SLUGS_RESERVADOS = new Set([
   "admin", "api", "onboarding", "registro", "ingresar", "salir", "precios", "privacidad",
   "terminos", "contacto", "demo-admin", "www", "app", "static", "public", "_next", "sw.js",
-  "manifest", "favicon.ico", "robots.txt", "sitemap.xml", "soporte", "ayuda", "blog", "login",
+  "manifest", "favicon.ico", "robots.txt", "sitemap.xml", "soporte", "ayuda", "blog", "login", "recuperar-clave", "restablecer", "demo",
 ]);
 
 export function urlBase(): string {

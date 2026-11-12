@@ -1,11 +1,14 @@
 import { GraficoBarras } from "@/components/grafico";
+import { redirect } from "next/navigation";
 import { EnlaceBoton, Metrica, Tabla, Tarjeta, Titulo, Vacio } from "@/components/ui";
 import { requerirDuenoActivo } from "@/lib/auth/guardas";
 import { obtenerMetricas } from "@/lib/servicios/panel";
 
 export default async function PaginaPanel({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { barberia } = await requerirDuenoActivo(slug);
+  const { barberia, impersonando } = await requerirDuenoActivo(slug);
+  // Primera vez: el dueño pasa por el asistente de alta.
+  if (!barberia.onboardingCompletedAt && !impersonando) redirect(`/${slug}/onboarding`);
   const m = await obtenerMetricas(barberia.id);
 
   return (

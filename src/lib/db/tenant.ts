@@ -131,8 +131,9 @@ export async function conPlataforma<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   }, OPCIONES_TX);
 }
 
-/** Tablas globales sin datos de barberías (sesiones e intentos de login). */
+/** Tablas globales sin datos de barberías (sesiones, intentos de login, enlaces de recuperación). */
 export const infraestructura = {
   session: prismaCrudo.session,
   loginAttempt: prismaCrudo.loginAttempt,
+  passwordResetToken: prismaCrudo.passwordResetToken,
 };

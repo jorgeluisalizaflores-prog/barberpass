@@ -12,7 +12,7 @@ export const dbDuenoTablas = new PrismaClient({ datasourceUrl: process.env.DIREC
 
 export async function limpiarBase(): Promise<void> {
   await dbDuenoTablas.$executeRawUnsafe(
-    'TRUNCATE "AuditLog","Payment","Redemption","Stamp","Customer","Barber","OwnerUser","Barbershop","Plan","PlatformSettings","Session","LoginAttempt","SuperAdmin" CASCADE',
+    'TRUNCATE "AuditLog","Payment","Redemption","Stamp","Customer","Barber","OwnerUser","Barbershop","Plan","PlatformSettings","Session","LoginAttempt","PasswordResetToken","SuperAdmin" CASCADE',
   );
 }
 
