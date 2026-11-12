@@ -1,0 +1,318 @@
+// Esquema de datos de la plataforma.
+//
+// REGLA DE ORO MULTI-BARBERÍA: todo modelo que pertenece a una barbería lleva
+// `barbershopId` y está protegido por Row Level Security (ver la migración
+// `rls`). Si agregas un modelo nuevo por barbería debes:
+//   1. añadirle `barbershopId`,
+//   2. registrarlo en MODELOS_POR_BARBERIA (src/lib/db/tenant.ts),
+//   3. crearle su política RLS en una migración,
+//   4. añadirlo a las pruebas de tests/aislamiento.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Rol de la aplicación (sin privilegios para saltarse RLS).
+  url       = env("DATABASE_URL")
+  // Rol dueño de las tablas: solo para migraciones.
+  directUrl = env("DIRECT_URL")
+}
+
+enum BarbershopStatus {
+  PRUEBA
+  ACTIVA
+  SUSPENDIDA
+}
+
+enum StampType {
+  CORTE
+  BIENVENIDA
+  EXTRA_AUTORIZADO
+}
+
+enum PaymentMethod {
+  YAPE
+  PLIN
+  TRANSFERENCIA
+  EFECTIVO
+  OTRO
+}
+
+enum SessionRole {
+  SUPER_ADMIN
+  DUENO
+  BARBERO
+}
+
+enum ActorRole {
+  SUPER_ADMIN
+  DUENO
+  BARBERO
+  CLIENTE
+  SISTEMA
+}
+
+// ───────────────────────── Modelos globales ─────────────────────────
+
+model SuperAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Plan {
+  id           String       @id @default(cuid())
+  name         String       @unique
+  description  String       @default("")
+  priceMonthly Decimal      @db.Decimal(10, 2)
+  // null = sin límite
+  maxBarbers   Int?
+  maxCustomers Int?
+  active       Boolean      @default(true)
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  barbershops  Barbershop[]
+  payments     Payment[]
+}
+
+// Fila única (id = 1) con la configuración de la plataforma.
+model PlatformSettings {
+  id                 Int    @id @default(1)
+  trialDays          Int    @default(14)
+  graceDays          Int    @default(5)
+  expiringNoticeDays Int    @default(7)
+  contactWhatsapp    String @default("")
+  basePrivacyPolicy  String @default("") @db.Text
+}
+
+// Sesiones de los tres roles con inicio de sesión. Solo se guarda el hash del
+// token; el token real vive únicamente en la cookie del navegador.
+model Session {
+  id             String      @id @default(cuid())
+  tokenHash      String      @unique
+  role           SessionRole
+  superAdminId   String?
+  ownerUserId    String?
+  barberId       String?
+  barbershopId   String?
+  // Si un super administrador "entra como" la barbería, aquí queda su id.
+  impersonatorId String?
+  ip             String?
+  expiresAt      DateTime
+  createdAt      DateTime    @default(now())
+
+  @@index([expiresAt])
+  @@index([barbershopId])
+}
+
+// Intentos fallidos de inicio de sesión / PIN (límite contra fuerza bruta).
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
+// ─────────────────────── Modelos por barbería (RLS) ───────────────────────
+
+model Barbershop {
+  id      String @id @default(cuid())
+  slug    String @unique
+  name    String
+  phone   String @default("")
+  address String @default("")
+  city    String @default("")
+
+  // Marca
+  logoData     Bytes?
+  logoMime     String?
+  logoVersion  Int     @default(0)
+  colorPrimary String  @default("#111827")
+  colorAccent  String  @default("#f59e0b")
+  stampIcon    String  @default("TIJERA") // TIJERA | NAVAJA
+  tagline      String  @default("Escanea y gana un corte gratis")
+
+  // Programa de fidelidad
+  stampsRequired      Int     @default(5)
+  rewardText          String  @default("Corte gratis")
+  welcomeStampEnabled Boolean @default(true)
+  welcomeStamps       Int     @default(1)
+  inactivityDays      Int     @default(30)
+  winbackTemplate     String  @default("") @db.Text
+  birthdayTemplate    String  @default("") @db.Text
+  privacyPolicy       String  @default("") @db.Text
+  // PIN del dueño para autorizar un sello extra el mismo día (hash).
+  ownerPinHash        String?
+
+  // Suscripción
+  planId        String
+  plan          Plan             @relation(fields: [planId], references: [id])
+  status        BarbershopStatus @default(PRUEBA)
+  trialEndsAt   DateTime
+  paidUntil     DateTime?
+  suspendedNote String           @default("")
+  isDemo        Boolean          @default(false)
+
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  owners      OwnerUser[]
+  barbers     Barber[]
+  customers   Customer[]
+  stamps      Stamp[]
+  redemptions Redemption[]
+  payments    Payment[]
+}
+
+model OwnerUser {
+  id           String     @id @default(cuid())
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  email        String     @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime   @default(now())
+
+  @@index([barbershopId])
+}
+
+model Barber {
+  id           String     @id @default(cuid())
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  name         String
+  pinHash      String
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  stamps      Stamp[]
+  redemptions Redemption[]
+
+  // Permite claves foráneas compuestas (barbería + id) desde sellos y canjes.
+  @@unique([barbershopId, id])
+}
+
+model Customer {
+  id           String     @id @default(cuid())
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  name         String
+  // Celular peruano: 9 dígitos, empieza con 9.
+  phone        String
+  birthDay     Int?
+  birthMonth   Int?
+
+  // Tokens aleatorios de 128 bits: el de la URL de la tarjeta y el del QR.
+  cardToken String @unique
+  qrToken   String @unique
+
+  privacyAcceptedAt DateTime
+  whatsappOptIn     Boolean   @default(false)
+  whatsappOptInAt   DateTime?
+
+  // Contadores (se actualizan en la misma transacción que el sello/canje).
+  stampsCount      Int       @default(0)
+  totalStamps      Int       @default(0)
+  totalRedemptions Int       @default(0)
+  lastVisitAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  stamps      Stamp[]
+  redemptions Redemption[]
+
+  // El mismo celular puede existir en varias barberías, pero no repetirse en una.
+  @@unique([barbershopId, phone])
+  @@unique([barbershopId, id])
+  @@index([barbershopId, name])
+  @@index([barbershopId, lastVisitAt])
+}
+
+model Stamp {
+  id           String     @id @default(cuid())
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  customerId   String
+  // Clave compuesta: un sello nunca puede apuntar a un cliente de otra barbería.
+  customer     Customer   @relation(fields: [barbershopId, customerId], references: [barbershopId, id], onDelete: Cascade)
+  barberId     String?
+  barber       Barber?    @relation(fields: [barbershopId, barberId], references: [barbershopId, id], onDelete: Restrict)
+  type         StampType  @default(CORTE)
+  quantity     Int        @default(1)
+  // Fecha local de Lima (AAAA-MM-DD).
+  localDate    String     @db.Char(10)
+  // Garantiza máximo 1 sello de tipo CORTE por cliente por día, incluso ante
+  // doble clic o dos barberos a la vez: vale "<clienteId>:<fecha>" para los
+  // sellos CORTE y null para los demás (bienvenida, extra autorizado).
+  dailyKey     String?    @unique
+  createdAt    DateTime   @default(now())
+
+  @@index([barbershopId, createdAt])
+  @@index([barbershopId, customerId, createdAt])
+  @@index([barbershopId, barberId])
+}
+
+model Redemption {
+  id           String     @id @default(cuid())
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Customer   @relation(fields: [barbershopId, customerId], references: [barbershopId, id], onDelete: Cascade)
+  barberId     String?
+  barber       Barber?    @relation(fields: [barbershopId, barberId], references: [barbershopId, id], onDelete: Restrict)
+  stampsUsed   Int
+  rewardText   String
+  createdAt    DateTime   @default(now())
+
+  @@index([barbershopId, createdAt])
+  @@index([barbershopId, customerId])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  barbershopId String
+  barbershop   Barbershop    @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  planId       String?
+  plan         Plan?         @relation(fields: [planId], references: [id])
+  amount       Decimal       @db.Decimal(10, 2)
+  method       PaymentMethod
+  paidAt       DateTime
+  months       Int           @default(1)
+  periodStart  DateTime
+  periodEnd    DateTime
+  note         String        @default("")
+  // Preparado para fase 2 (pasarela): proveedor y referencia externa.
+  provider     String        @default("manual")
+  externalRef  String?
+  recordedById String?
+  createdAt    DateTime      @default(now())
+
+  @@index([barbershopId, paidAt])
+  @@index([paidAt])
+}
+
+// Registro de auditoría: solo se inserta, nunca se edita ni borra.
+// No tiene clave foránea a la barbería para conservarse pase lo que pase.
+model AuditLog {
+  id             String    @id @default(cuid())
+  barbershopId   String?
+  actorRole      ActorRole
+  actorId        String?
+  actorName      String    @default("")
+  impersonatorId String?
+  action         String
+  entity         String?
+  entityId       String?
+  detail         Json?
+  ip             String?
+  createdAt      DateTime  @default(now())
+
+  @@index([barbershopId, createdAt])
+  @@index([createdAt])
+  @@index([action])
+}
