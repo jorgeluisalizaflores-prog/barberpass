@@ -14,7 +14,7 @@ Plataforma SaaS multi-barbería: una sola instalación atiende a muchas barberí
 6. [Registrar un pago](#registrar-un-pago)
 7. [Barbería demo](#barbería-demo)
 8. [Pruebas](#pruebas)
-9. [Despliegue en producción](#despliegue-en-producción-vercel--neon)
+9. [Despliegue rápido y gratis](#despliegue-rápido-y-gratis-vercel--neon-pocos-clics) y [despliegue en producción](#despliegue-en-producción-vercel--neon)
 10. [Seguridad](#seguridad)
 11. [Fase 2: qué falta y qué se necesita](#fase-2-qué-falta-y-qué-se-necesita)
 12. [Estructura del proyecto](#estructura-del-proyecto)
@@ -178,7 +178,7 @@ Como el PIN de los barberos demo es público, cualquiera puede sumar sellos en l
 npm test
 ```
 
-115 pruebas contra una base PostgreSQL real (`barberpass_test`), usando el mismo rol restringido que la aplicación. Las migraciones se aplican solas. Si tu base de pruebas tiene otras credenciales, define `TEST_DATABASE_URL` y `TEST_DIRECT_URL`.
+115 pruebas contra una base PostgreSQL real (`barberpass_test`), usando el mismo rol restringido que la aplicación. Las migraciones se aplican solas. Si tu base de pruebas tiene otras credenciales, define `TEST_DATABASE_URL` y `TEST_DIRECT_URL`. (Tres pruebas de aislamiento exigen que `TEST_DATABASE_URL` use el rol restringido; con el rol dueño fallan a propósito.)
 
 - `tests/aislamiento/` — una barbería no puede leer, crear, modificar ni borrar datos de otra, en las tres capas (Prisma, RLS con SQL crudo, claves compuestas). Incluye que toda tabla con `barbershopId` tenga RLS y que la aplicación no corra con un rol capaz de saltárselo.
 - `tests/integracion/` — autenticación y límite de intentos, registro de clientes, sellos y canjes (incluido doble clic y canjes simultáneos), panel del dueño, pagos y suscripciones, registro público, recuperación de contraseña y demo.
@@ -195,6 +195,22 @@ npm run test:e2e
 ```
 
 Necesita la aplicación corriendo. Cada ejecución crea 2 barberías de prueba y el límite anti-abuso permite 3 altas por IP cada 15 minutos.
+
+## Despliegue rápido y gratis (Vercel + Neon, pocos clics)
+
+Camino más corto para tener un enlace público. No hace falta consola ni crear roles a mano: el proyecto se prepara solo en cada despliegue (`vercel.json` → `scripts/preparar-produccion.ts`): aplica migraciones, carga planes, crea tu super administrador y la barbería demo.
+
+1. Entra a https://vercel.com y regístrate con **Continue with GitHub**.
+2. **Add New → Project** e importa el repositorio `barberpass`. Antes de pulsar *Deploy*, abre **Environment Variables** y añade `ADMIN_EMAIL` (tu correo) y `ADMIN_PASSWORD` (tu contraseña de administrador, mínimo 8 caracteres).
+3. Pulsa **Deploy**. Este primer intento fallará con el mensaje «Falta DATABASE_URL»: es normal, aún no hay base de datos.
+4. En el proyecto, pestaña **Storage → Create Database → Neon** (plan gratuito) y conéctala al proyecto. Vercel añade solo las variables de la base de datos.
+5. Pestaña **Deployments → ⋯ → Redeploy**. Al terminar, abre el enlace: `/demo` para la demostración y `/admin` para tu panel.
+
+Notas:
+
+- En este modo solo existe la conexión del rol dueño de la base de datos. Para que Row Level Security siga protegiendo, cada transacción baja sus privilegios con `SET LOCAL ROLE barberpass_app` (ver `src/lib/db/tenant.ts`). La configuración de la sección siguiente (rol restringido propio en `DATABASE_URL`) es más estricta y es la recomendada cuando tengas clientes de pago.
+- El plan gratuito de Vercel es para uso no comercial: sirve para probar y enseñar la demo. Al empezar a cobrar suscripciones, pasa al plan Pro.
+- La contraseña del dueño de la demo se genera al azar; entra a la demo desde `/admin` con el botón **Entrar al panel de la demo**, o define `DEMO_PASSWORD` antes del primer despliegue.
 
 ## Despliegue en producción (Vercel + Neon)
 

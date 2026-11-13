@@ -17,7 +17,8 @@
     "crear-superadmin": "tsx scripts/crear-superadmin.ts",
     "crear-barberia": "tsx scripts/crear-barberia.ts",
     "demo": "tsx scripts/demo.ts",
-    "test:e2e": "node tests/e2e/flujo.cjs"
+    "test:e2e": "node tests/e2e/flujo.cjs",
+    "build:vercel": "tsx scripts/preparar-produccion.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

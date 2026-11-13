@@ -109,11 +109,50 @@ function extensionBarberia(barbershopId: string) {
 
 const OPCIONES_TX = { maxWait: 10_000, timeout: 20_000 };
 
+// ─── Rol restringido automático ─────────────────────────────────────────
+// Lo ideal es que DATABASE_URL use directamente el rol `barberpass_app`. Pero
+// en despliegues "de un clic" (p. ej. la integración Vercel + Neon) solo hay
+// UNA cadena de conexión, la del rol dueño, que se salta RLS. En ese caso,
+// cada transacción baja sus privilegios con `SET LOCAL ROLE barberpass_app`,
+// de modo que Row Level Security se aplica igual.
+let rolDetectado: Promise<string | null> | null = null;
+
+function rolRestringido(): Promise<string | null> {
+  rolDetectado ??= (async () => {
+    const rol = process.env.DB_APP_ROLE || "barberpass_app";
+    if (!/^[a-z_][a-z0-9_]*$/.test(rol)) throw new Error("DB_APP_ROLE no es un nombre de rol válido");
+    const [yo] = await prismaCrudo.$queryRaw<{ usuario: string; salta: boolean }[]>`
+      SELECT current_user::text AS usuario,
+             (r.rolsuper OR r.rolbypassrls OR EXISTS (
+                SELECT 1 FROM pg_tables t WHERE t.schemaname = 'public' AND t.tableowner = current_user)) AS salta
+      FROM pg_roles r WHERE r.rolname = current_user`;
+    if (!yo?.salta) return null; // ya es un rol restringido: nada que hacer
+    try {
+      // Prueba real: ¿esta conexión puede adoptar el rol restringido?
+      await prismaCrudo.$transaction(async (tx) => { await tx.$executeRawUnsafe(`SET LOCAL ROLE "${rol}"`); });
+      return rol;
+    } catch {
+      console.warn(
+        `⚠ AISLAMIENTO: la conexión usa el rol "${yo.usuario}", que se salta Row Level Security, y no puede adoptar "${rol}". ` +
+        "Queda activa solo la capa de filtros de la aplicación. Revisa la sección de despliegue del README.",
+      );
+      return null;
+    }
+  })();
+  return rolDetectado;
+}
+
+async function prepararTransaccion(tx: { $executeRawUnsafe(sql: string): Promise<unknown> }): Promise<void> {
+  const rol = await rolRestringido();
+  if (rol) await tx.$executeRawUnsafe(`SET LOCAL ROLE "${rol}"`);
+}
+
 /** Ejecuta `fn` limitado a UNA barbería (extensión de Prisma + RLS). */
 export async function conBarberia<T>(barbershopId: string, fn: (db: Db) => Promise<T>): Promise<T> {
   if (!barbershopId) throw new Error("conBarberia requiere el id de la barbería");
   const cliente = prismaCrudo.$extends(extensionBarberia(barbershopId));
   return cliente.$transaction(async (tx) => {
+    await prepararTransaccion(tx);
     // set_config(..., true) = válido solo dentro de esta transacción.
     await tx.$executeRaw`SELECT set_config('app.barbershop_id', ${barbershopId}, true)`;
     return fn(tx as unknown as Db);
@@ -126,6 +165,7 @@ export async function conBarberia<T>(barbershopId: string, fn: (db: Db) => Promi
  */
 export async function conPlataforma<T>(fn: (db: Db) => Promise<T>, opciones: { timeout?: number } = {}): Promise<T> {
   return prismaCrudo.$transaction(async (tx) => {
+    await prepararTransaccion(tx);
     await tx.$executeRaw`SELECT set_config('app.plataforma', 'on', true)`;
     return fn(tx);
   }, { ...OPCIONES_TX, ...opciones });
